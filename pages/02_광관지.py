@@ -23,13 +23,13 @@ places = [
 # Streamlit 기본 UI
 # -------------------------------
 st.title("🌏 서울 주요 관광지 TOP 10")
-st.write("관광지 이름을 클릭하면 지도에서 해당 위치로 이동합니다.")
+st.write("관광지 이름을 선택하면 지도에서 해당 위치로 이동하고, 마우스를 올리면 이름이 가로로 표시됩니다.")
 
 # 선택 기능
 place_names = [p[0] for p in places]
 selected_place = st.selectbox("📍 보고 싶은 관광지를 선택하세요", place_names)
 
-# 선택된 관광지의 좌표 가져오기
+# 선택된 관광지 좌표 가져오기
 selected_data = next(p for p in places if p[0] == selected_place)
 selected_lat, selected_lon = selected_data[1], selected_data[2]
 
@@ -41,29 +41,24 @@ marker_cluster = MarkerCluster().add_to(m)
 
 # 마커 추가
 for name, lat, lon, desc, subway in places:
+    tooltip_html = f"<div style='white-space: nowrap;'>{name}</div>"  # 👉 이름 가로로 표시
     folium.Marker(
         [lat, lon],
         popup=f"<b>{name}</b><br>{desc}<br><i>🚇 {subway}</i>",
-        icon=folium.Icon(color="blue" if name != selected_place else "red", icon="star" if name == selected_place else "info-sign")
+        tooltip=tooltip_html,
+        icon=folium.Icon(
+            color="red" if name == selected_place else "blue",
+            icon="star" if name == selected_place else "info-sign"
+        )
     ).add_to(marker_cluster)
 
-# 선택한 관광지 중심으로 지도 이동 (JavaScript 사용)
-js = f"""
-<script>
-    var map = window.map;
-    if (map) {{
-        map.setView([{selected_lat}, {selected_lon}], 14);
-    }}
-</script>
-"""
-
 # Folium 지도 HTML 변환
-map_html = m._repr_html_() + js
+map_html = m._repr_html_()
 
 # -------------------------------
-# 지도 출력
+# 지도 출력 (크기 축소)
 # -------------------------------
-st.write("🗺️ 선택한 관광지 위치 지도 (크기 축소 버전)")
+st.write("🗺️ 선택한 관광지 위치 지도")
 html(map_html, height=330)
 
 # -------------------------------
