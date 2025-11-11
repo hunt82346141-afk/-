@@ -37,3 +37,4 @@ for place in places:
 st.write("서울 주요 관광지 지도")
 st.dataframe(places)  # 관광지 데이터 표로 보여주기
 st.markdown(folium.Figure(width=700, height=500).add_child(m)._repr_html_(), unsafe_allow_html=True)
+
