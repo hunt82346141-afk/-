@@ -1,6 +1,7 @@
 import streamlit as st
 import folium
 from folium.plugins import MarkerCluster
+from streamlit.components.v1 import html
 
 # 서울의 주요 관광지 리스트 (위도, 경도, 관광지 이름)
 places = [
@@ -16,25 +17,30 @@ places = [
     ("동대문디자인플라자", 37.566557, 127.009138)
 ]
 
-# 스트림릿 웹페이지 제목 설정
-st.title("서울 주요 관광지 TOP 10")
+# 스트림릿 제목
+st.title("🌏 서울 주요 관광지 TOP 10")
+st.write("외국인 관광객이 많이 찾는 서울의 대표 명소들을 지도에 표시했습니다!")
 
-# 지도 생성 (서울 중심)
+# 지도 생성
 m = folium.Map(location=[37.5665, 126.9780], zoom_start=12)
-
-# 마커 클러스터 설정
 marker_cluster = MarkerCluster().add_to(m)
 
-# 관광지 마커 추가
-for place in places:
+# 마커 추가
+for name, lat, lon in places:
     folium.Marker(
-        location=[place[1], place[2]],
-        popup=place[0],
+        [lat, lon],
+        popup=name,
         icon=folium.Icon(color="blue", icon="info-sign")
     ).add_to(marker_cluster)
 
-# 스트림릿에서 지도 표시
-st.write("서울 주요 관광지 지도")
-st.dataframe(places)  # 관광지 데이터 표로 보여주기
-st.markdown(folium.Figure(width=700, height=500).add_child(m)._repr_html_(), unsafe_allow_html=True)
+# Folium 지도를 HTML로 변환
+map_html = m._repr_html_()
 
+# 스트림릿에서 표시
+st.dataframe(places, column_config={
+    0: "관광지 이름",
+    1: "위도",
+    2: "경도"
+})
+st.write("🗺️ 관광지 위치 지도:")
+html(map_html, height=500)
