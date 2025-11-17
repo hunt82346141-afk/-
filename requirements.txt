@@ -5,6 +5,3 @@ pandas
 plotly
 numpy
 
-streamlit>=1.22
-pandas>=1.5
-plotly>=5.15
