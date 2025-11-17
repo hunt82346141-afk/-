@@ -1,22 +1,26 @@
-# pages/app.py
 import streamlit as st
 import pandas as pd
+import os
 
 st.set_page_config(page_title="지하철 TOP 10 승하차", layout="centered")
 
-st.title("📊 지하철 역 TOP 10 (승차+하차 합계 기준)")
-st.markdown("날짜와 호선을 선택하면 TOP 10 역을 Plotly 그래프로 보여줍니다.")
-
 # ---------------------------------------------------
-# CSV 파일 로드 (Streamlit Cloud에서 절대 경로 문제 방지)
+# 📌 100% Streamlit Cloud에서 동작하는 CSV 경로 설정
 # ---------------------------------------------------
-CSV_PATH = "subway.csv"   # ⬅ 이것만 써야 Cloud에서 100% 동작
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CSV_PATH = os.path.join(ROOT_DIR, "subway.csv")
 
 @st.cache_data
 def load_data():
+    if not os.path.exists(CSV_PATH):
+        st.error(f"❌ CSV 파일을 찾을 수 없습니다.\n경로: {CSV_PATH}")
+        st.stop()
+
+    # cp949 → utf-8 순차 시도
     try:
         return pd.read_csv(CSV_PATH, encoding="cp949")
     except:
         return pd.read_csv(CSV_PATH, encoding="utf-8")
 
 df = load_data()
+st.success("CSV 로드 성공!")
