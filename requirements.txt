@@ -5,3 +5,7 @@ pandas
 plotly
 numpy
 
+streamlit
+pandas
+folium
+streamlit-folium
