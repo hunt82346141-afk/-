@@ -54,7 +54,9 @@ district_lat_lon = {
     "부산중구": [35.1018, 129.0234], "부산서구": [35.0934, 129.0108], "부산동구": [35.1328, 129.0436],
     
     # 대구 지역 (예시)
-    "대구중구": [35.8679, 128.6010], "대구동구": [35.8829, 128.6940], "대구달서구": [35.8360, 128.5300],
+    "대구중구": [35.8679, 128.6010], "대구동구": [35.8829, 128.6940], "대구서구": [35.8722, 128.5630],
+    "대구남구": [35.8450, 128.5860], "대구북구": [35.8790, 128.5870], "대구수성구": [35.8620, 128.6500],
+    "대구달서구": [35.8360, 128.5300], "대구달성군": [35.8790, 128.4350], "대구군위군": [36.2300, 128.5800],
     
     # ⚠️ CSV 파일에 있는 모든 지역의 좌표를 여기에 추가하세요! 
     # 예: "인천연수구": [37.4069, 126.6787], "광주광산구": [35.1764, 126.8049], ...
@@ -72,7 +74,7 @@ def clean_district_name(full_name):
 # 3. Streamlit 앱 레이아웃 및 초기화
 # ==============================================================================
 st.set_page_config(layout="wide")
-st.title("🛡️ 대한민국 지역별 범죄 안전 지표")
+st.title("🛡️ 대한민국 지역별 범죄 안전 지표 (위험도 시각화)")
 st.markdown("---")
 
 if crime_df is None or crime_totals is None:
@@ -86,10 +88,10 @@ if 'selected_district' not in st.session_state:
     st.session_state.selected_district = default_district
 
 # ==============================================================================
-# 4. 지도 생성 및 클릭 이벤트 처리
+# 4. 지도 생성 및 클릭 이벤트 처리 (CircleMarker로 지역 위험도 시각화)
 # ==============================================================================
 def create_interactive_crime_map():
-    """Folium 지도를 생성하고 클릭 이벤트를 처리합니다."""
+    """Folium 지도를 생성하고 지역별 범죄 건수에 따라 원의 크기와 색상을 조정하여 표시합니다."""
     
     if not district_lat_lon:
         st.warning("🚨 지역 좌표 데이터가 없어 지도를 표시할 수 없습니다. '사용자 지침 사항'을 확인해주세요.")
@@ -106,41 +108,75 @@ def create_interactive_crime_map():
     # Folium 맵 생성
     m = folium.Map(location=[center_lat, center_lon], zoom_start=11, tiles="cartodbpositron")
 
-    # 마커 클러스터 추가
-    marker_cluster = folium.plugins.MarkerCluster().add_to(m)
+    # 범죄 건수 스케일링을 위한 최소/최대값 계산
+    total_crime_counts = crime_totals['총 범죄 건수'].values
+    
+    # 맵에 표시되는 지역의 범죄 건수만 사용
+    valid_counts = total_crime_counts[pd.Series(crime_totals.index).isin(district_lat_lon.keys())].values
+    
+    if len(valid_counts) > 0:
+        min_crime = valid_counts.min()
+        max_crime = valid_counts.max()
+    else:
+        min_crime, max_crime = 0, 1 # Prevent division by zero
 
-    # 지역별 마커 추가
+    def scale_crime_value(value):
+        """범죄 건수를 맵 마커 크기 및 색상으로 스케일링합니다."""
+        if max_crime == min_crime:
+            return 8, 'blue' # Default size/color if all values are the same
+        
+        # Normalize (0 to 1)
+        norm = (value - min_crime) / (max_crime - min_crime)
+        
+        # Radius scaling (Min radius 8, Max radius 30) -> 범죄가 많을수록 원이 커집니다.
+        radius = 8 + norm * 22 
+        
+        # Color scaling (Red for high crime, Green for low crime) -> 범죄가 많을수록 붉어집니다.
+        if norm > 0.7:
+            color = 'red' # 위험
+        elif norm > 0.4:
+            color = 'orange' # 주의
+        else:
+            color = 'green' # 안전
+
+        return radius, color
+
+    # 지역별 CircleMarker 추가
     for district, [lat, lon] in district_lat_lon.items():
         if district not in crime_totals.index:
             continue
             
         total_crime = crime_totals.loc[district, '총 범죄 건수']
+        radius, marker_color = scale_crime_value(total_crime)
         
-        # 마커 크기/색상을 범죄 건수에 따라 다르게 설정할 수 있습니다. (시각적 센스)
-        # 여기서는 단순히 선택된 지역만 강조
         is_selected = (district == current_district)
         
         # 팝업에 특별한 클래스를 추가하여 Streamlit에서 클릭 이벤트를 잡을 수 있도록 함
+        # 이 부분이 지도에서 클릭 시 하단 정보가 업데이트되는 핵심입니다.
         popup_html = f"""
             <div 
                 onclick="window.parent.postMessage({{'type': 'streamlit:setComponentValue', 'key': 'clicked_district_key', 'value': '{district}', 'is_user_triggered': true}}, '*')" 
-                style='cursor: pointer; font-weight: bold; padding: 5px;'>
-                {clean_district_name(district)} 👈 분석 보기
+                style='cursor: pointer; font-weight: bold; padding: 5px; text-align: center;'>
+                {clean_district_name(district)}<br> 👈 분석 보기
             </div>
         """
         
-        folium.Marker(
+        # CircleMarker 사용: 크기와 색상으로 위험도 시각화
+        folium.CircleMarker(
             [lat, lon],
+            radius=radius,
+            color='black', # 외곽선 색상
+            weight=1, # 외곽선 두께
+            fill=True,
+            # 선택된 지역은 강조를 위해 빨간색으로 고정
+            fill_color='red' if is_selected else marker_color, 
+            fill_opacity=0.6,
             popup=folium.Popup(popup_html, max_width=200),
-            tooltip=f"총 범죄: {total_crime:,}건 (클릭하여 상세 분석)",
-            icon=folium.Icon(
-                color="red" if is_selected else "blue",
-                icon="shield",
-                prefix='fa' # Font Awesome 아이콘 사용
-            )
-        ).add_to(marker_cluster)
+            tooltip=f"{clean_district_name(district)} | 🚨 총 범죄: {total_crime:,}건 (크기=위험도)",
+        ).add_to(m) # 지도에 직접 추가
 
     # st_folium을 사용하여 지도를 표시하고 클릭 데이터를 받습니다.
+    st.subheader("🗺️ 지역 위험도 시각화 지도 (원 크기/색상 = 범죄 건수)")
     map_output = st_folium(
         m, 
         width=1000, 
@@ -152,14 +188,12 @@ def create_interactive_crime_map():
     )
 
     # 클릭 이벤트 처리 (map_output이 아닌, st.session_state에 저장된 값을 이용)
-    # Folium 마커의 커스텀 JS를 통해 'clicked_district_key'에 값이 들어오면 st.session_state가 업데이트됩니다.
     clicked_district = st.session_state.get('clicked_district_key')
     
     if clicked_district and clicked_district != st.session_state.selected_district:
         st.session_state.selected_district = clicked_district
         # 상태가 변경되었으므로 Streamlit을 재실행하여 하단 목록 업데이트 및 지도 중심 변경
         st.rerun() 
-        # st.rerun()은 st.session_state가 변경되었을 때만 호출하는 것이 효율적입니다.
 
 # ==============================================================================
 # 5. 메인 앱 실행 및 분석 결과 표시
@@ -195,11 +229,11 @@ with col_controls:
     st.metric(
         label="총 범죄 발생 건수 (202X년 기준)", 
         value=f"{total_crime_count:,} 건",
-        delta="🚨 안전 주의 (전국 평균 대비 추후 계산 가능)",
-        delta_color="inverse"
+        delta="🚨 지도에서 원이 클수록, 붉을수록 위험도가 높습니다.",
+        delta_color="off" # 델타 색상 비활성화
     )
     
-    st.info("👆 지도에서 지역 마커(🚩)를 클릭하거나 검색창을 이용하세요.", icon="📌")
+    st.info("👆 지도에서 **원(마커)**을 클릭하거나 검색창을 이용해 지역을 선택하세요.", icon="📌")
 
 with col_map:
     # 지도 생성 및 표시
@@ -231,7 +265,7 @@ try:
         """건수가 높을수록 붉은색 배경을 적용하는 함수"""
         if isinstance(val, (int, float)) and val > 0:
             max_val = district_analysis_df['발생 건수'].max()
-            norm = val / max_val
+            norm = val / max_val if max_val > 0 else 0
             # 강한 범죄일수록 붉은색 농도 증가
             return f'background-color: rgba(255, 99, 71, {norm * 0.4})'
         return ''
