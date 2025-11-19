@@ -7,4 +7,6 @@ numpy
 
 
 
-requirements.txt
+pip install -r requirements.txt
+streamlit run pages/analysis_app.py
+
