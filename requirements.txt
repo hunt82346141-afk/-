@@ -1,12 +1,8 @@
 streamlit
 folium
-
 pandas
 plotly
 numpy
-
-
-
 pip install -r requirements.txt
 streamlit run pages/analysis_app.py
 
