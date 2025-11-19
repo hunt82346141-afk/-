@@ -2,9 +2,4 @@ streamlit
 folium
 pandas
 plotly
-requirements.txt
-
-streamlit
-pandas
-plotly
 numpy
