@@ -131,7 +131,8 @@ unique_crimes_sorted = sorted(unique_crimes, key=lambda x: (str(x)))
 selected_crime = st.selectbox("어떤 범죄(사건)를 볼래?", options=unique_crimes_sorted)
 
 # Top N 설정
-top_n = st.slider("Top N 장소 개수", min_value=3, max_value=20, value=10)
+# 항상 Top 10만 표시
+top_n = 10
 
 # 집계
 counts_df = top_locations_for_crime(df, crime_col, location_col, selected_crime, topn=top_n)
